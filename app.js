@@ -911,52 +911,91 @@
   }
 
   async function registerAccount(studentId, birthday){
-    if(!firebaseDB) throw new Error('Firebase 未初期化');
     const id = String(studentId).trim();
     const pw = String(birthday).trim();
     if(!id || !pw) throw new Error('学籍番号・誕生日が必要です');
-    const docRef = firebaseDB.collection('accounts').doc(id);
-    const snap = await docRef.get();
-    if(snap.exists) throw new Error('その学籍番号は既に登録されています');
     const hash = await hashString(pw);
-    await docRef.set({ passwordHash: hash, createdAt: new Date().toISOString() });
-    // also save current local data under accounts/{id}/data
-    await firebaseDB.collection('accounts').doc(id).collection('meta').doc('data').set({ testRecords, savedAt: new Date().toISOString() });
-    return true;
+    // If firebase is available, use Firestore
+    if(firebaseDB){
+      const docRef = firebaseDB.collection('accounts').doc(id);
+      const snap = await docRef.get();
+      if(snap.exists) throw new Error('その学籍番号は既に登録されています');
+      await docRef.set({ passwordHash: hash, createdAt: new Date().toISOString() });
+      // also save current local data under accounts/{id}/meta/data
+      await firebaseDB.collection('accounts').doc(id).collection('meta').doc('data').set({ testRecords, savedAt: new Date().toISOString() });
+      return true;
+    }
+    // Fallback: store accounts in localStorage (for environments without Firebase)
+    try{
+      const key = 'kl_accounts_local_v1';
+      const raw = localStorage.getItem(key);
+      const map = raw ? JSON.parse(raw) : {};
+      if(map[id]) throw new Error('その学籍番号は既に登録されています');
+      map[id] = { passwordHash: hash, createdAt: new Date().toISOString(), meta: { data: { testRecords, savedAt: new Date().toISOString() } } };
+      localStorage.setItem(key, JSON.stringify(map));
+      return true;
+    }catch(e){ throw new Error('ローカル保存に失敗しました: ' + e.message); }
   }
 
   async function loginAccount(studentId, birthday){
-    if(!firebaseDB) throw new Error('Firebase 未初期化');
     const id = String(studentId).trim();
     const pw = String(birthday).trim();
     if(!id || !pw) throw new Error('学籍番号・誕生日が必要です');
-    const docRef = firebaseDB.collection('accounts').doc(id);
-    const snap = await docRef.get();
-    if(!snap.exists) throw new Error('アカウントが見つかりません');
-    const data = snap.data();
     const hash = await hashString(pw);
-    if(!data || data.passwordHash !== hash) throw new Error('学籍番号または誕生日が誤っています');
-    // auth OK
-    currentAccountId = id;
-    try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
-    // update UI
-    if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
-    if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
-    // load account data if exists
-    const dataSnap = await firebaseDB.collection('accounts').doc(id).collection('meta').doc('data').get();
-    if(dataSnap.exists){
-      const payload = dataSnap.data();
+    // If firebase is available, use Firestore
+    if(firebaseDB){
+      const docRef = firebaseDB.collection('accounts').doc(id);
+      const snap = await docRef.get();
+      if(!snap.exists) throw new Error('アカウントが見つかりません');
+      const data = snap.data();
+      if(!data || data.passwordHash !== hash) throw new Error('学籍番号または誕生日が誤っています');
+      // auth OK
+      currentAccountId = id;
+      try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
+      // update UI
+      if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
+      if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
+      // load account data if exists
+      const dataSnap = await firebaseDB.collection('accounts').doc(id).collection('meta').doc('data').get();
+      if(dataSnap.exists){
+        const payload = dataSnap.data();
+        if(payload && payload.testRecords){
+          if(confirm('アカウントに保存されたデータをローカルに読み込みますか？(OK = 上書き, Cancel = マージ)')){
+            testRecords = payload.testRecords; if(testRecords.length) currentTestId = testRecords[0].id; save(); refreshTestSelect(); renderBoard();
+          } else {
+            // merge
+            payload.testRecords.forEach(tr => { if(!testRecords.find(t=>t.id===tr.id)) testRecords.push(tr); });
+            save(); refreshTestSelect(); renderBoard();
+          }
+        }
+      }
+      return true;
+    }
+    // Fallback: check localStorage accounts
+    try{
+      const key = 'kl_accounts_local_v1';
+      const raw = localStorage.getItem(key);
+      const map = raw ? JSON.parse(raw) : {};
+      const rec = map[id];
+      if(!rec) throw new Error('アカウントが見つかりません');
+      if(!rec.passwordHash || rec.passwordHash !== hash) throw new Error('学籍番号または誕生日が誤っています');
+      // auth OK
+      currentAccountId = id;
+      try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
+      if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
+      if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
+      // load saved data if present
+      const payload = rec.meta && rec.meta.data ? rec.meta.data : null;
       if(payload && payload.testRecords){
         if(confirm('アカウントに保存されたデータをローカルに読み込みますか？(OK = 上書き, Cancel = マージ)')){
           testRecords = payload.testRecords; if(testRecords.length) currentTestId = testRecords[0].id; save(); refreshTestSelect(); renderBoard();
         } else {
-          // merge
           payload.testRecords.forEach(tr => { if(!testRecords.find(t=>t.id===tr.id)) testRecords.push(tr); });
           save(); refreshTestSelect(); renderBoard();
         }
       }
-    }
-    return true;
+      return true;
+    }catch(e){ throw new Error('ローカルアカウント読み込みに失敗しました: ' + e.message); }
   }
 
   function logoutAccount(){
@@ -967,20 +1006,46 @@
   }
 
   async function saveToAccount(){
-    if(!firebaseDB) throw new Error('Firebase 未初期化');
-  if(!currentAccountId) return alert('先に学籍番号でログインしてください');
-  await firebaseDB.collection('accounts').doc(currentAccountId).collection('meta').doc('data').set({ testRecords, savedAt: new Date().toISOString() });
-  notify('アカウントへ保存しました');
+    if(!currentAccountId) return alert('先に学籍番号でログインしてください');
+    if(firebaseDB){
+      await firebaseDB.collection('accounts').doc(currentAccountId).collection('meta').doc('data').set({ testRecords, savedAt: new Date().toISOString() });
+      notify('アカウントへ保存しました');
+      return;
+    }
+    // localStorage fallback
+    try{
+      const key = 'kl_accounts_local_v1';
+      const raw = localStorage.getItem(key);
+      const map = raw ? JSON.parse(raw) : {};
+      map[currentAccountId] = map[currentAccountId] || {};
+      map[currentAccountId].meta = map[currentAccountId].meta || {};
+      map[currentAccountId].meta.data = { testRecords, savedAt: new Date().toISOString() };
+      localStorage.setItem(key, JSON.stringify(map));
+      notify('アカウントへ保存しました (ローカル)');
+    }catch(e){ alert('ローカル保存に失敗しました: ' + e.message); }
   }
 
   async function loadFromAccount(){
-    if(!firebaseDB) throw new Error('Firebase 未初期化');
     if(!currentAccountId) return alert('先に学籍番号でログインしてください');
-    const dataSnap = await firebaseDB.collection('accounts').doc(currentAccountId).collection('meta').doc('data').get();
-  if(!dataSnap.exists) return alert('アカウントに保存されたデータはありません');
-  const payload = dataSnap.data();
-  if(payload && payload.testRecords){ testRecords = payload.testRecords; if(testRecords.length) currentTestId = testRecords[0].id; save(); refreshTestSelect(); renderBoard(); notify('アカウントのデータを読み込みました'); }
-  else alert('アカウントデータの形式が不正です');
+    if(firebaseDB){
+      const dataSnap = await firebaseDB.collection('accounts').doc(currentAccountId).collection('meta').doc('data').get();
+      if(!dataSnap.exists) return alert('アカウントに保存されたデータはありません');
+      const payload = dataSnap.data();
+      if(payload && payload.testRecords){ testRecords = payload.testRecords; if(testRecords.length) currentTestId = testRecords[0].id; save(); refreshTestSelect(); renderBoard(); notify('アカウントのデータを読み込みました'); }
+      else alert('アカウントデータの形式が不正です');
+      return;
+    }
+    // local fallback
+    try{
+      const key = 'kl_accounts_local_v1';
+      const raw = localStorage.getItem(key);
+      const map = raw ? JSON.parse(raw) : {};
+      const rec = map[currentAccountId];
+      if(!rec || !rec.meta || !rec.meta.data) return alert('アカウントに保存されたデータはありません');
+      const payload = rec.meta.data;
+      if(payload && payload.testRecords){ testRecords = payload.testRecords; if(testRecords.length) currentTestId = testRecords[0].id; save(); refreshTestSelect(); renderBoard(); notify('アカウントのデータを読み込みました (ローカル)'); }
+      else alert('アカウントデータの形式が不正です');
+    }catch(e){ alert('ローカル読み込みに失敗しました: ' + e.message); }
   }
 
   // デバッグ用に同期関数と Firebase オブジェクトをグローバルに露出

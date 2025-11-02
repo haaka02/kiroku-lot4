@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>テスト詳細 - テスト点数記録表</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="site-header card">
+      <div class="header-left">
+        <h1>テスト詳細</h1>
+        <p class="subtitle">タイルから遷移しました。ここで点数入力やグラフができます。</p>
+      </div>
+      <div class="header-right">
+        <a href="index.html" class="btn">一覧に戻る</a>
+      </div>
+    </header>
+
+    <section class="scoreboard card">
+      <div class="score-header">
+        <h2 id="boardTitle">—</h2>
+        <div class="totals">
+          <div>合計: <strong id="totalScore">0</strong></div>
+          <div>平均: <strong id="avgScore">0</strong></div>
+        </div>
+      </div>
+
+      <table class="score-table" id="scoreTable">
+        <thead>
+          <tr>
+            <th>教科名</th>
+            <th>点数</th>
+            <th>前回</th>
+            <th>差分</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="add-subject">
+        <input id="newSubjectName" placeholder="教科名を入力（例：数学）" />
+        <input id="newSubjectScore" placeholder="点数" type="number" min="0" max="100" />
+        <button id="addSubjectBtn" class="btn">教科を追加</button>
+      </div>
+
+      <div class="chart-card card" id="chartCard">
+        <h3 class="chart-title">点数グラフ（現在 / 前回）</h3>
+        <canvas id="scoreChart" width="800" height="320"></canvas>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="swatch current"></span> 現在</span>
+          <span class="legend-item"><span class="swatch previous"></span> 前回</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

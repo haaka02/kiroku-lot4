@@ -61,6 +61,8 @@
   let firebaseApp = null;
   let firebaseAuth = null;
   let firebaseDB = null;
+  // Realtime listener unsubscribe handle
+  let realtimeUnsub = null;
 
   let testRecords = [];
   let currentTestId = null;
@@ -289,30 +291,50 @@
     localStorage.setItem(LS_KEY, JSON.stringify(testRecords));
     // 自動的に学籍番号アカウントへも保存（ログイン済みかつ firebase 初期化済みの場合）
     try{
-      if(currentAccountId && firebaseDB){
-        // fire-and-forget
+      if(currentAccountId){
+        // fire-and-forget to account (cloud if available, otherwise local)
         saveToAccount().catch(e=>console.error('auto saveToAccount failed', e));
       }
     }catch(e){}
   }
 
   function refreshTestSelect(){
-    if(!els || !els.testSelect) return;
-    els.testSelect.innerHTML = '';
-    testRecords.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.id; opt.textContent = t.name;
-      els.testSelect.appendChild(opt);
-    });
-    // restore selected test from localStorage if present and valid
-    try{
-      const stored = localStorage.getItem(SELECTED_TEST_LS_KEY);
-      if(stored && testRecords.find(t=>t.id===stored)){
-        currentTestId = stored;
-      }
-    }catch(e){ /* ignore */ }
-    if(!currentTestId && testRecords.length) currentTestId = testRecords[0].id;
-    if(currentTestId) els.testSelect.value = currentTestId;
+    // Update legacy select if present
+    if(els && els.testSelect){
+      els.testSelect.innerHTML = '';
+      testRecords.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id; opt.textContent = t.name;
+        els.testSelect.appendChild(opt);
+      });
+      // restore selected test from localStorage if present and valid
+      try{
+        const stored = localStorage.getItem(SELECTED_TEST_LS_KEY);
+        if(stored && testRecords.find(t=>t.id===stored)){
+          currentTestId = stored;
+        }
+      }catch(e){ /* ignore */ }
+      if(!currentTestId && testRecords.length) currentTestId = testRecords[0].id;
+      if(currentTestId) els.testSelect.value = currentTestId;
+    }
+
+    // Render responsive tile grid if present (new UI)
+    const grid = document.getElementById('testsGrid');
+    if(grid){
+      grid.innerHTML = '';
+      testRecords.forEach(t => {
+        const tile = document.createElement('div');
+        tile.className = 'test-tile';
+        tile.dataset.id = t.id;
+        const name = document.createElement('div'); name.className = 'tile-name'; name.textContent = t.name;
+        const meta = document.createElement('div'); meta.className = 'tile-meta'; meta.textContent = (t.subjects||[]).length + ' 科目';
+        tile.appendChild(name); tile.appendChild(meta);
+        tile.addEventListener('click', ()=>{ window.location.href = 'test.html?testId=' + encodeURIComponent(t.id); });
+        grid.appendChild(tile);
+      });
+    }
+    // persist selected test id
+    try{ localStorage.setItem(SELECTED_TEST_LS_KEY, currentTestId); }catch(e){}
   }
 
   function renameCurrentTest() {
@@ -793,7 +815,7 @@
     });
     els.renameTestBtn.addEventListener('click', renameCurrentTest);
     els.deleteTestBtn.addEventListener('click', deleteCurrentTest);
-  els.testSelect.addEventListener('change', e=>{ currentTestId = e.target.value; try{ localStorage.setItem(SELECTED_TEST_LS_KEY, currentTestId); }catch(e){} renderBoard(); });
+  if(els.testSelect) els.testSelect.addEventListener('change', e=>{ currentTestId = e.target.value; try{ localStorage.setItem(SELECTED_TEST_LS_KEY, currentTestId); }catch(e){} renderBoard(); });
     els.addSubjectBtn.addEventListener('click', ()=>{
       const name = els.newSubjectName.value.trim();
       const score = els.newSubjectScore.value;
@@ -962,11 +984,13 @@
       if(!snap.exists) throw new Error('アカウントが見つかりません');
       const data = snap.data();
       if(!data || data.passwordHash !== hash) throw new Error('学籍番号または誕生日が誤っています');
-      // auth OK
-      currentAccountId = id;
-      try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
-      // If this page doesn't have the main UI (e.g., login.html), skip DOM updates and defer loading until index loads
-      if(!document.getElementById('testSelect')) return true;
+  // auth OK
+  currentAccountId = id;
+  try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
+  // start realtime listener for this account if possible
+  try{ if(firebaseDB) startRealtimeSyncForAccount(currentAccountId); }catch(e){ console.warn('startRealtime after login failed', e); }
+  // If this page doesn't have the main UI (e.g., login.html), skip DOM updates and defer loading until index loads
+  if(!document.getElementById('testSelect') && !document.getElementById('testsGrid')) return true;
       // update UI
       if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
       if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
@@ -997,6 +1021,8 @@
       // auth OK
       currentAccountId = id;
       try{ localStorage.setItem('kl_account_id', currentAccountId); }catch(e){}
+    // start realtime listener for this account (local fallback won't have realtime)
+    try{ if(firebaseDB) startRealtimeSyncForAccount(currentAccountId); }catch(e){ console.warn('startRealtime after local login', e); }
       if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
       if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
       // load saved data if present
@@ -1016,6 +1042,7 @@
   function logoutAccount(){
     currentAccountId = null;
     try{ localStorage.removeItem('kl_account_id'); }catch(e){}
+    stopRealtimeSync();
     if(els.authUser) { els.authUser.textContent = ''; els.authUser.style.display = 'none'; }
     if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'none';
   }
@@ -1063,6 +1090,74 @@
     }catch(e){ alert('ローカル読み込みに失敗しました: ' + e.message); }
   }
 
+  // realtime sync: listen for account data changes and merge them in
+  function startRealtimeSyncForAccount(accountId){
+    stopRealtimeSync();
+    if(!firebaseDB || !accountId) return;
+    try{
+      const docRef = firebaseDB.collection('accounts').doc(accountId).collection('meta').doc('data');
+      realtimeUnsub = docRef.onSnapshot(snap => {
+        if(!snap.exists) return;
+        try{
+          const payload = snap.data();
+          if(!payload || !payload.testRecords) return;
+          // merge incoming records that don't exist locally
+          let added = 0;
+          payload.testRecords.forEach(tr => { if(!testRecords.find(t=>t.id===tr.id)){ testRecords.push(tr); added++; } });
+          if(added){ save(); refreshTestSelect(); renderBoard(); notify('他の端末の変更を受信しました'); }
+        }catch(e){ console.warn('realtime onSnapshot handler error', e); }
+      }, err => { console.warn('realtime onSnapshot error', err); });
+    }catch(e){ console.warn('startRealtimeSyncForAccount failed', e); }
+  }
+
+  function stopRealtimeSync(){
+    try{ if(realtimeUnsub) { realtimeUnsub(); realtimeUnsub = null; } }catch(e){}
+  }
+
+  // 自動読み込み（ログイン後に index.html が開かれたときに呼ぶ。確認ダイアログは出さず、既存データとマージする）
+  async function autoLoadAccountData(){
+    try{
+      // try to recover account id from storage if not set
+      if(!currentAccountId){
+        try{ currentAccountId = localStorage.getItem('kl_account_id'); }catch(e){ currentAccountId = null; }
+      }
+      if(!currentAccountId) return;
+      if(els.authUser) { els.authUser.textContent = `acct:${currentAccountId}`; els.authUser.style.display = 'inline-block'; }
+      if(els.logoutAcctBtn) els.logoutAcctBtn.style.display = 'inline-block';
+
+  // start realtime listener if possible
+  try{ if(firebaseDB) startRealtimeSyncForAccount(currentAccountId); }catch(e){ console.warn('startRealtime in autoLoad failed', e); }
+      // cloud
+      if(firebaseDB){
+        const dataSnap = await firebaseDB.collection('accounts').doc(currentAccountId).collection('meta').doc('data').get();
+        if(!dataSnap.exists) return;
+        const payload = dataSnap.data();
+        if(payload && payload.testRecords){
+          // merge: add records that don't exist locally
+          payload.testRecords.forEach(tr => { if(!testRecords.find(t=>t.id===tr.id)) testRecords.push(tr); });
+          save(); refreshTestSelect(); renderBoard();
+          notify('アカウントのデータを自動で読み込みました');
+        }
+        return;
+      }
+
+      // local fallback
+      try{
+        const key = 'kl_accounts_local_v1';
+        const raw = localStorage.getItem(key);
+        const map = raw ? JSON.parse(raw) : {};
+        const rec = map[currentAccountId];
+        if(!rec || !rec.meta || !rec.meta.data) return;
+        const payload = rec.meta.data;
+        if(payload && payload.testRecords){
+          payload.testRecords.forEach(tr => { if(!testRecords.find(t=>t.id===tr.id)) testRecords.push(tr); });
+          save(); refreshTestSelect(); renderBoard();
+          notify('アカウントのデータを自動で読み込みました (ローカル)');
+        }
+      }catch(e){ console.warn('autoLoadAccountData failed', e); }
+    }catch(e){ console.warn('autoLoadAccountData outer', e); }
+  }
+
   // デバッグ用に同期関数と Firebase オブジェクトをグローバルに露出
   try{
     if(typeof window !== 'undefined'){
@@ -1093,12 +1188,20 @@
     testRecords = load();
     templates = loadTemplates();
     updateVersionLabel();
-    if(testRecords.length) currentTestId = testRecords[0].id;
+    // If URL contains testId param (e.g., test.html?testId=...), prefer that
+    try{
+      const params = new URLSearchParams(window.location.search);
+      const urlTest = params.get('testId');
+      if(urlTest && testRecords.find(t=>t.id===urlTest)) currentTestId = urlTest;
+      else if(testRecords.length) currentTestId = testRecords[0].id;
+    }catch(e){ if(testRecords.length) currentTestId = testRecords[0].id; }
   bind(); refreshTestSelect(); refreshTemplateSelect(); renderBoard();
   // 初期化時に教科候補を反映
   refreshSubjectNameOptions();
   // Firebase があれば初期化を行う
   try{ initFirebaseIfConfigured(); }catch(e){ console.warn('initFirebaseIfConfigured failed', e); }
+  // 保存されたアカウントIDがあれば自動でアカウントデータを読み込む（ログイン後のリダイレクトで利用される）
+  try{ autoLoadAccountData(); }catch(e){ console.warn('autoLoadAccountData start failed', e); }
     // ウィンドウリサイズ時にグラフを再描画
     window.addEventListener('resize', ()=>{
       const test = testRecords.find(t=>t.id===currentTestId);

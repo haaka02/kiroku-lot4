@@ -47,6 +47,43 @@
         <button id="addSubjectBtn" class="btn">教科を追加</button>
       </div>
 
+      <div class="template-controls row small">
+        <div class="template-actions">
+          <select id="templateSelect">
+            <option value="">テンプレートを選択...</option>
+          </select>
+          <div class="btn-group">
+            <button id="saveTemplateBtn" class="btn">テンプレートとして保存</button>
+            <button id="applyTemplateBtn" class="btn">テンプレートを適用</button>
+          </div>
+        </div>
+        <div class="template-share">
+          <div class="share-url-group">
+            <input id="templateShareLink" placeholder="テンプレート共有URLがここに表示されます" readonly />
+            <div class="btn-group">
+              <button id="shareTemplateBtn" class="btn">共有</button>
+              <button id="copyTemplateShareBtn" class="btn">コピー</button>
+            </div>
+          </div>
+          <div class="qr-group">
+            <div class="btn-group">
+              <button id="showTemplateQRBtn" class="btn">QR表示</button>
+              <button id="downloadTemplateQRBtn" class="btn">QRダウンロード</button>
+            </div>
+            <img id="templateQR" alt="テンプレートQR" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row small">
+        <button id="shareBtn" class="btn">共有リンクを作成</button>
+        <input id="shareLink" placeholder="共有リンクがここに表示されます" readonly />
+        <button id="copyShareBtn" class="btn">コピー</button>
+      </div>
+      <div class="row small">
+        <button id="publishBtn" class="btn">公開ディレクトリへ投稿（Issueで提出）</button>
+      </div>
+
       <div class="compare-card card" id="compareCard">
         <h3>他の人のデータと比較</h3>
         <div class="compare-controls">

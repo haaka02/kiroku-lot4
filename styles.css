@@ -48,7 +48,7 @@ body{
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .version-label{color:var(--muted);font-size:12px;font-weight:bold;background:#f1f5f9;padding:2px 6px;border-radius:4px}
 
-.controls .row{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.controls .row{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap}
 .controls input, .controls select{
   padding: 8px;
   border-radius: var(--radius-sm);
@@ -140,7 +140,13 @@ body{
   box-shadow: var(--btn-shadow);
   transition: all 0.2s ease;
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* Ensure the tests grid takes a full row in the controls area so tiles are visible */
+#testsGrid{flex-basis:100%;width:100%}
 
 .btn:hover {
   opacity: 0.95;

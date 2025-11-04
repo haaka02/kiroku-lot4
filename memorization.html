@@ -15,7 +15,7 @@
       </div>
       <nav style="margin-left:16px;display:flex;gap:8px;align-items:center">
   <a id="openMemHeaderBtn" href="memorization.html" class="btn">暗記モード</a>
-  <button type="button" id="openResultsBtn" class="btn">記録モード</button>
+  <a id="openResultsBtn" class="btn" href="index.html">点数記録</a>
     <button type="button" id="toggleEditBtn" class="btn" style="margin-left:8px">カード編集</button>
       </nav>
     </header>
@@ -120,6 +120,9 @@
   const testFront = document.getElementById('testFront');
   const testInputs = document.getElementById('testInputs');
   const testResult = document.getElementById('testResult');
+
+  // page-local toast notification
+  function notify(msg){ try{ let el = document.getElementById('kl_toast_mem'); if(!el){ el = document.createElement('div'); el.id='kl_toast_mem'; el.style.position='fixed'; el.style.right='12px'; el.style.top='12px'; el.style.zIndex=9999; document.body.appendChild(el); } const item = document.createElement('div'); item.textContent = msg; item.style.background = '#e6fffa'; item.style.color = '#0f172a'; item.style.padding = '8px 12px'; item.style.marginTop = '8px'; item.style.borderRadius = '6px'; item.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)'; el.appendChild(item); setTimeout(()=>{ item.style.opacity='0'; setTimeout(()=>item.remove(),300); },2400); }catch(e){ console.warn('notify', e); } }
 
   // mode buttons (radio inputs were removed; use buttons)
   const learnModeBtn = document.getElementById('learnModeBtn');
@@ -406,8 +409,8 @@
   const openResultsBtn = document.getElementById('openResultsBtn');
   function updateOpenResultsBtn(){
     if(!openResultsBtn) return;
-    // Always allow navigating to the record (index) page from memorization mode
-    openResultsBtn.disabled = false; openResultsBtn.title = '点数記録ページに戻る';
+    // ensure anchor has href so navigation works without JS interference
+    try{ openResultsBtn.setAttribute('href', 'index.html'); openResultsBtn.title = '点数記録ページに戻る'; openResultsBtn.style.opacity='1'; openResultsBtn.style.pointerEvents='auto'; }catch(e){}
   }
   // update when deck changes
   deckSelect.addEventListener('change', ()=>{ loadDeck(); updateOpenResultsBtn(); });

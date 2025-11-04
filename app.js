@@ -54,6 +54,22 @@
     }catch(e){ console.log('notify', msg); }
   }
 
+  // ----------------------
+  // Access logging (client-side)
+  // Records page views into localStorage so admin can inspect access logs.
+  const ACCESS_LOG_KEY = 'kiroku_access_logs_v1';
+  function recordAccess(path){
+    try{
+      const raw = localStorage.getItem(ACCESS_LOG_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      const entry = { path: path || window.location.pathname, ts: Date.now(), ua: navigator.userAgent, ref: document.referrer || null, accountId: currentAccountId || null };
+      arr.push(entry);
+      // keep last 2000 entries
+      if(arr.length>2000) arr.splice(0, arr.length-2000);
+      localStorage.setItem(ACCESS_LOG_KEY, JSON.stringify(arr));
+    }catch(e){ console.warn('recordAccess failed', e); }
+  }
+
   // account id for custom auth (学籍番号ベース)
   let currentAccountId = null;
 
@@ -1248,6 +1264,8 @@
     testRecords = load();
     templates = loadTemplates();
     updateVersionLabel();
+    // record page view for admin analytics (client-side)
+    try{ recordAccess(window.location.pathname); }catch(e){}
     // If URL contains testId param (e.g., test.html?testId=...), prefer that
     try{
       const params = new URLSearchParams(window.location.search);

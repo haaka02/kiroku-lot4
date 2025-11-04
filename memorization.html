@@ -15,8 +15,8 @@
       </div>
       <nav style="margin-left:16px;display:flex;gap:8px;align-items:center">
   <a id="openMemHeaderBtn" href="memorization.html" class="btn">暗記モード</a>
-  <button id="openResultsBtn" class="btn">記録モード</button>
-        <button id="toggleEditBtn" class="btn" style="margin-left:8px">カード編集</button>
+  <button type="button" id="openResultsBtn" class="btn">記録モード</button>
+    <button type="button" id="toggleEditBtn" class="btn" style="margin-left:8px">カード編集</button>
       </nav>
     </header>
 
@@ -27,11 +27,11 @@
         </label>
         
         <input id="newDeckName" placeholder="新しいデッキ名を入力" />
-        <button id="createDeckBtn" class="btn">デッキ作成</button>
-        <button id="deleteDeckBtn" class="btn danger">デッキ削除</button>
+  <button type="button" id="createDeckBtn" class="btn">デッキ作成</button>
+  <button type="button" id="deleteDeckBtn" class="btn danger">デッキ削除</button>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-          <button id="learnModeBtn" class="btn">学習</button>
-          <button id="testModeBtn" class="btn">テスト</button>
+          <button type="button" id="learnModeBtn" class="btn">学習</button>
+          <button type="button" id="testModeBtn" class="btn">テスト</button>
         </div>
       </div>
     </section>
@@ -43,9 +43,9 @@
         <textarea id="cardFront" placeholder="表（問題）を入力: 例）日本の首都は () です" rows="3"></textarea>
         <textarea id="cardBack" placeholder="裏（解答）。複数は改行・カンマ・スペースでも区切れます（例: 東京 大阪）" rows="2"></textarea>
         <div style="display:flex;gap:8px;align-items:center">
-          <button id="insertBlankBtn" class="btn">() を挿入</button>
-          <button id="clearCardBtn" class="btn">クリア</button>
-          <button id="saveCardBtn" class="btn">カードを保存</button>
+          <button type="button" id="insertBlankBtn" class="btn">() を挿入</button>
+          <button type="button" id="clearCardBtn" class="btn">クリア</button>
+          <button type="button" id="saveCardBtn" class="btn">カードを保存</button>
         </div>
       </div>
     </section>
@@ -61,9 +61,9 @@
         <div id="studyBack" style="color:var(--muted);display:none">裏</div>
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button id="revealBtn" class="btn">答えを見る</button>
-        <button id="prevBtn" class="btn">前へ</button>
-        <button id="nextBtn" class="btn">次へ</button>
+  <button type="button" id="revealBtn" class="btn">答えを見る</button>
+  <button type="button" id="prevBtn" class="btn">前へ</button>
+  <button type="button" id="nextBtn" class="btn">次へ</button>
       </div>
       <div id="progress" style="margin-top:8px;color:var(--muted)"></div>
     </section>
@@ -74,7 +74,7 @@
         <div id="testInputs" style="margin-top:8px"></div>
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button id="testPrevBtn" class="btn">前へ</button>
+  <button type="button" id="testPrevBtn" class="btn">前へ</button>
       </div>
       <div id="testResult" style="margin-top:8px;color:var(--muted)"></div>
       <div id="testSummary" style="display:none;margin-top:16px;text-align:center">
@@ -359,7 +359,7 @@
         if(hasCards) { startTestSession(); showTest(0); }
       }
     }
-    if(learnModeBtn) learnModeBtn.addEventListener('click', ()=>{ 
+    if(learnModeBtn) learnModeBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation();
       // exit edit mode when switching to learn/test
       isEditing = false;
       // restore header buttons
@@ -367,7 +367,7 @@
       if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
       currentMode = 'learn'; updateMode();
     });
-    if(testModeBtn) testModeBtn.addEventListener('click', ()=>{ 
+    if(testModeBtn) testModeBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation();
       isEditing = false;
       if(toggleEditBtn) toggleEditBtn.style.display = '';
       if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
@@ -392,7 +392,7 @@
   // update when deck changes
   deckSelect.addEventListener('change', ()=>{ loadDeck(); updateOpenResultsBtn(); });
   updateOpenResultsBtn();
-  if(openResultsBtn){ openResultsBtn.addEventListener('click', ()=>{
+  if(openResultsBtn){ openResultsBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation();
     // clear any pending edit flag
     try{ sessionStorage.removeItem('kiroku_lot_open_edit'); }catch(e){}
     // navigate to the score recording (一覧) page

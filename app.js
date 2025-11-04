@@ -70,6 +70,18 @@
     }catch(e){ console.warn('recordAccess failed', e); }
   }
 
+  // attempt to send access log to server-side Netlify Function (if available)
+  async function sendAccessToServer(entry){
+    try{
+      // do not block on failure
+      await fetch('/.netlify/functions/log-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry)
+      });
+    }catch(e){ /* ignore */ }
+  }
+
   // account id for custom auth (学籍番号ベース)
   let currentAccountId = null;
 
@@ -1265,7 +1277,12 @@
     templates = loadTemplates();
     updateVersionLabel();
     // record page view for admin analytics (client-side)
-    try{ recordAccess(window.location.pathname); }catch(e){}
+    try{ 
+      const entry = { path: window.location.pathname, ts: Date.now(), ua: navigator.userAgent, ref: document.referrer || null, accountId: currentAccountId || null };
+      recordAccess(window.location.pathname);
+      // fire-and-forget server send
+      sendAccessToServer(entry);
+    }catch(e){}
     // If URL contains testId param (e.g., test.html?testId=...), prefer that
     try{
       const params = new URLSearchParams(window.location.search);

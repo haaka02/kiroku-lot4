@@ -55,7 +55,15 @@
         document.getElementById('loginBtn').addEventListener('click', async ()=>{
           msg.textContent = '';
           try{
-            const ok = await window._debug.loginAccount(idEl.value.trim(), bEl.value.trim());
+            // special admin shortcut: acctId === 'admin' and empty password -> go to admin dashboard
+            const idVal = idEl.value.trim();
+            const bVal = bEl.value.trim();
+            if(idVal.toLowerCase() === 'admin' && bVal === ''){
+              // redirect to admin page where the real admin password is requested
+              window.location.href = 'admin.html';
+              return;
+            }
+            const ok = await window._debug.loginAccount(idVal, bVal);
             if(ok){ window.location.href = 'index.html'; }
           }catch(e){ msg.style.color='#b91c1c'; msg.textContent = e.message; }
         });

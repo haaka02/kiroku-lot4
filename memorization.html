@@ -158,6 +158,7 @@
     let currentDeckId = null;
     let currentIndex = 0;
     let deckCards = [];
+  let editingCardIndex = null;
 
     function renderDeckSelect(){ deckSelect.innerHTML = ''; store.decks.forEach(d=>{ const o=document.createElement('option'); o.value=d.id; o.textContent=d.name; deckSelect.appendChild(o); }); if(deckSelect.options.length) deckSelect.value = deckSelect.options[0].value; currentDeckId = deckSelect.value; loadDeck(); }
 
@@ -173,7 +174,22 @@
       updateOpenResultsBtn();
     }
 
-    function renderCardsList(){ cardsList.innerHTML=''; deckCards.forEach((c,i)=>{ const el=document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.alignItems='center'; el.style.gap='8px'; const left=document.createElement('div'); left.textContent=(i+1)+'. '+(c.front.slice(0,80)); const btns=document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; const edit=document.createElement('button'); edit.className='btn'; edit.textContent='編集'; edit.addEventListener('click', ()=>{ cardFront.value=c.front; cardBack.value=c.back; }); const del=document.createElement('button'); del.className='btn danger'; del.textContent='削除'; del.addEventListener('click', ()=>{ if(!confirm('カードを削除しますか？'))return; deckCards.splice(i,1); persistDeck(); renderCardsList(); }); btns.appendChild(edit); btns.appendChild(del); el.appendChild(left); el.appendChild(btns); cardsList.appendChild(el); }); }
+    function renderCardsList(){ cardsList.innerHTML=''; deckCards.forEach((c,i)=>{ const el=document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.alignItems='center'; el.style.gap='8px'; const left=document.createElement('div'); left.textContent=(i+1)+'. '+(c.front.slice(0,80)); const btns=document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; const edit=document.createElement('button'); edit.className='btn'; edit.textContent='編集'; edit.addEventListener('click', ()=>{ 
+        // enter inline edit for this card
+        editingCardIndex = i;
+        cardFront.value = c.front;
+        cardBack.value = c.back;
+        // show top controls/edit UI if hidden
+        isEditing = true;
+        topControls.style.display = 'block'; cardRegister.style.display='block'; document.getElementById('deckArea').style.display = 'block';
+        // update save button to indicate update
+        saveCardBtn.textContent = '更新';
+        // hide header edit button while editing
+        if(toggleEditBtn) toggleEditBtn.style.display = 'none';
+        if(openMemHeaderBtn) openMemHeaderBtn.style.display = 'none';
+        updateOpenResultsBtn();
+      });
+      const del=document.createElement('button'); del.className='btn danger'; del.textContent='削除'; del.addEventListener('click', ()=>{ if(!confirm('カードを削除しますか？'))return; deckCards.splice(i,1); persistDeck(); renderCardsList(); }); btns.appendChild(edit); btns.appendChild(del); el.appendChild(left); el.appendChild(btns); cardsList.appendChild(el); }); }
 
     function persistDeck(){ const idx = store.decks.findIndex(d=>d.id===currentDeckId); if(idx===-1) return; store.decks[idx].cards = deckCards; save(store); }
 
@@ -196,10 +212,23 @@
     saveCardBtn.addEventListener('click', ()=>{
       if(!currentDeckId) return alert('先にデッキを選択または作成してください');
       const f = cardFront.value.trim(); const b = cardBack.value.trim(); if(!f) return alert('表を入力してください');
-      const card = { id: uid(), front: f, back: b };
-      deckCards.push(card); persistDeck(); renderCardsList(); cardFront.value=''; cardBack.value='';
+      if(editingCardIndex !== null && typeof editingCardIndex === 'number'){
+        // update existing card
+        const existing = deckCards[editingCardIndex] || {};
+        deckCards[editingCardIndex] = { id: existing.id || uid(), front: f, back: b };
+        editingCardIndex = null;
+        saveCardBtn.textContent = 'カードを保存';
+      } else {
+        const card = { id: uid(), front: f, back: b };
+        deckCards.push(card);
+      }
+      persistDeck(); renderCardsList(); cardFront.value=''; cardBack.value='';
+      // restore header edit button visibility
+      if(toggleEditBtn) toggleEditBtn.style.display = '';
+      if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
+      updateOpenResultsBtn();
     });
-    clearCardBtn.addEventListener('click', ()=>{ cardFront.value=''; cardBack.value=''; });
+    clearCardBtn.addEventListener('click', ()=>{ cardFront.value=''; cardBack.value=''; editingCardIndex = null; saveCardBtn.textContent = 'カードを保存'; if(toggleEditBtn) toggleEditBtn.style.display = ''; if(openMemHeaderBtn) openMemHeaderBtn.style.display = ''; updateOpenResultsBtn(); });
 
   // study mode (full-screen style)
   function showStudy(i){ if(!deckCards.length) return; currentIndex = (i+deckCards.length)%deckCards.length; const c = deckCards[currentIndex]; studyFront.textContent = c.front; studyBack.textContent = c.back; studyBack.style.display='none'; progressEl.textContent = `${currentIndex+1}/${deckCards.length}`; }
@@ -321,8 +350,20 @@
         if(hasCards) { startTestSession(); showTest(0); }
       }
     }
-    if(learnModeBtn) learnModeBtn.addEventListener('click', ()=>{ currentMode = 'learn'; updateMode(); });
-    if(testModeBtn) testModeBtn.addEventListener('click', ()=>{ currentMode = 'test'; updateMode(); });
+    if(learnModeBtn) learnModeBtn.addEventListener('click', ()=>{ 
+      // exit edit mode when switching to learn/test
+      isEditing = false;
+      // restore header buttons
+      if(toggleEditBtn) toggleEditBtn.style.display = '';
+      if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
+      currentMode = 'learn'; updateMode();
+    });
+    if(testModeBtn) testModeBtn.addEventListener('click', ()=>{ 
+      isEditing = false;
+      if(toggleEditBtn) toggleEditBtn.style.display = '';
+      if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
+      currentMode = 'test'; updateMode();
+    });
 
   // init
   renderDeckSelect();

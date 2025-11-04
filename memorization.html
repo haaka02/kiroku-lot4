@@ -25,6 +25,7 @@
         <label>デッキ
           <select id="deckSelect"></select>
         </label>
+        <button id="closeEditBtn" class="btn" style="display:none">編集を閉じる</button>
         <input id="newDeckName" placeholder="新しいデッキ名を入力" />
         <button id="createDeckBtn" class="btn">デッキ作成</button>
         <button id="deleteDeckBtn" class="btn danger">デッキ削除</button>
@@ -144,24 +145,28 @@
   const showEditOnLoad = urlParams.get('edit') === '1';
   let isEditing = false;
   const toggleEditBtn = document.getElementById('toggleEditBtn');
+    const closeEditBtn = document.getElementById('closeEditBtn');
     if(toggleEditBtn) toggleEditBtn.addEventListener('click', ()=>{
-      const showing = topControls.style.display !== 'none';
-      if(showing){
-        // hide edit UI
-        topControls.style.display = 'none'; cardRegister.style.display='none'; document.getElementById('deckArea').style.display='none';
-        isEditing = false;
-        // show memorization header button when leaving edit
-        if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
-        updateOpenResultsBtn();
-        updateMode();
-      } else {
-        // show edit UI
-        topControls.style.display = 'block'; cardRegister.style.display='block'; document.getElementById('deckArea').style.display='block'; studyArea.style.display='none'; testArea.style.display='none';
-        isEditing = true;
-        // hide memorization header button while editing
-        if(openMemHeaderBtn) openMemHeaderBtn.style.display = 'none';
-        updateOpenResultsBtn();
-      }
+      // Enter edit mode
+      isEditing = true;
+      topControls.style.display = 'block'; cardRegister.style.display='block'; document.getElementById('deckArea').style.display='block'; studyArea.style.display='none'; testArea.style.display='none';
+      // hide header edit button while editing
+      toggleEditBtn.style.display = 'none';
+      if(openMemHeaderBtn) openMemHeaderBtn.style.display = 'none';
+      // show close button inside edit UI
+      if(closeEditBtn) closeEditBtn.style.display = '';
+      updateOpenResultsBtn();
+    });
+    if(closeEditBtn) closeEditBtn.addEventListener('click', ()=>{
+      // Exit edit mode
+      isEditing = false;
+      topControls.style.display = 'none'; cardRegister.style.display='none'; document.getElementById('deckArea').style.display='none';
+      // restore header buttons
+      toggleEditBtn.style.display = '';
+      if(openMemHeaderBtn) openMemHeaderBtn.style.display = '';
+      if(closeEditBtn) closeEditBtn.style.display = 'none';
+      updateOpenResultsBtn();
+      updateMode();
     });
 
     let currentDeckId = null;

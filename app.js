@@ -375,6 +375,7 @@
     if(!testRecords || !testRecords.length){
       const empty = document.createElement('div'); empty.textContent = 'まだテストが登録されていません'; empty.style.padding='12px'; empty.style.color='var(--muted)'; grid.appendChild(empty); return;
     }
+    // build tiles as vertical list, right-aligned
     testRecords.forEach(t => {
       const tile = document.createElement('div');
       tile.className = 'test-tile';
@@ -382,13 +383,65 @@
       const name = document.createElement('div'); name.className = 'tile-name'; name.textContent = t.name;
       const meta = document.createElement('div'); meta.className = 'tile-meta'; meta.textContent = `${(t.subjects||[]).length} 科目`;
       tile.appendChild(name); tile.appendChild(meta);
-      // hover/leave animations
       tile.addEventListener('mouseenter', ()=> tile.classList.add('tile-hover'));
       tile.addEventListener('mouseleave', ()=> tile.classList.remove('tile-hover'));
-      // press animation then navigate shortly after to allow effect
-      tile.addEventListener('click', (e)=>{ e.preventDefault(); tile.classList.add('tile-press'); const target = 'test.html?testId=' + encodeURIComponent(t.id); setTimeout(()=>{ window.location.href = target; }, 160); });
+      tile.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const rect = tile.getBoundingClientRect();
+        const containerRect = grid.getBoundingClientRect();
+        const centerY = containerRect.top + containerRect.height/2;
+        const tileCenterY = (rect.top + rect.bottom)/2;
+        const isCentered = Math.abs(centerY - tileCenterY) < 12;
+        if(!isCentered){ tile.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+        tile.classList.add('tile-press');
+        const target = 'test.html?testId=' + encodeURIComponent(t.id);
+        setTimeout(()=>{ window.location.href = target; }, 200);
+      });
       grid.appendChild(tile);
     });
+
+    // selection detection: mark the tile nearest to vertical center as selected
+    let selectTimer = null;
+    function updateSelected(){
+      const children = Array.from(grid.querySelectorAll('.test-tile'));
+      if(!children.length) return;
+      const cRect = grid.getBoundingClientRect();
+      const centerY = cRect.top + cRect.height/2;
+      let best = null; let bestDist = Infinity;
+      children.forEach(ch => {
+        const r = ch.getBoundingClientRect();
+        const cy = (r.top + r.bottom)/2;
+        const dist = Math.abs(centerY - cy);
+        if(dist < bestDist){ bestDist = dist; best = ch; }
+      });
+      children.forEach(ch => ch.classList.toggle('tile-selected', ch === best));
+    }
+
+    // Debounced selection update on scroll
+    grid.addEventListener('scroll', ()=>{ if(selectTimer) clearTimeout(selectTimer); selectTimer = setTimeout(updateSelected, 80); });
+    setTimeout(()=>{ updateSelected(); if(grid.children[0]) grid.children[0].scrollIntoView({block:'center'}); }, 120);
+
+    // Simple wheel inertia (momentum) implementation
+    (function enableInertia(){
+      let vy = 0; let rafId = null; let lastTime = 0;
+      function step(t){
+        if(!lastTime) lastTime = t;
+        const dt = (t - lastTime)/1000; lastTime = t;
+        // apply velocity
+        if(Math.abs(vy) > 0.1){
+          grid.scrollTop += vy * dt * 1000;
+          vy *= Math.exp(-4 * dt); // friction
+          rafId = requestAnimationFrame(step);
+        } else { vy = 0; lastTime = 0; cancelAnimationFrame(rafId); rafId = null; }
+      }
+      grid.addEventListener('wheel', (e)=>{
+        // accumulate vertical wheel into vy
+        vy += e.deltaY * 0.8;
+        if(!rafId) rafId = requestAnimationFrame(step);
+        // prevent default to avoid native jump on some browsers
+        e.preventDefault();
+      }, {passive:false});
+    })();
   }
 
   function renameCurrentTest() {
@@ -944,6 +997,9 @@
     });
     if(els.downloadTemplateQRBtn) els.downloadTemplateQRBtn.addEventListener('click', downloadTemplateQR);
 
+    // init spotify UI in header-right
+    try{ initSpotifyUI(); }catch(e){ console.warn('initSpotifyUI failed', e); }
+
     // Save current test as template
     if(els.saveTemplateBtn) els.saveTemplateBtn.addEventListener('click', saveAsTemplate);
 
@@ -1029,6 +1085,75 @@
       // Only initialize Firestore (we use custom account-based storage). Google sign-in / auth UI removed.
       firebaseDB = firebase.firestore();
     }catch(e){ console.error('init firebase error', e); }
+  }
+
+  // -----------------------
+  // Spotify playback UI + Web Playback SDK bootstrap (requires user token)
+  // Add: a small playback bar in header-right and initialize Spotify Player
+  function initSpotifyUI(){
+    const headerRight = document.querySelector('.header-right');
+    if(!headerRight) return;
+    // create container
+    const bar = document.createElement('div'); bar.id = 'spotifyBar'; bar.style.display='flex'; bar.style.alignItems='center'; bar.style.gap='8px';
+    // track info
+    const track = document.createElement('div'); track.id = 'spotifyTrack'; track.style.color = 'var(--muted)'; track.style.fontSize='13px'; track.textContent = 'Spotify: 未接続';
+    const playBtn = document.createElement('button'); playBtn.id='spotifyPlay'; playBtn.className='btn'; playBtn.textContent='▶';
+    const pauseBtn = document.createElement('button'); pauseBtn.id='spotifyPause'; pauseBtn.className='btn'; pauseBtn.textContent='⏸'; pauseBtn.style.display='none';
+    const connectBtn = document.createElement('button'); connectBtn.id='spotifyConnect'; connectBtn.className='btn'; connectBtn.textContent='Connect Spotify';
+    bar.appendChild(track); bar.appendChild(playBtn); bar.appendChild(pauseBtn); bar.appendChild(connectBtn);
+    headerRight.appendChild(bar);
+
+    // load SDK when token available
+    let spotifyPlayer = null; let deviceId = null; let accessToken = localStorage.getItem('spotify_token');
+    function setTrackText(t){ document.getElementById('spotifyTrack').textContent = t; }
+
+    async function initPlayer(token){
+      if(!window.Spotify) {
+        await new Promise((res,rej)=>{
+          const s = document.createElement('script'); s.src = 'https://sdk.scdn.co/spotify-player.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        }).catch(()=>{ console.warn('failed to load spotify sdk'); });
+      }
+      if(!window.Spotify) return;
+      window.onSpotifyWebPlaybackSDKReady = () => {};
+      spotifyPlayer = new window.Spotify.Player({ name: 'Kiroku Player', getOAuthToken: cb => cb(token) });
+      spotifyPlayer.addListener('initialization_error', ({message})=> console.error(message));
+      spotifyPlayer.addListener('authentication_error', ({message})=> console.error(message));
+      spotifyPlayer.addListener('account_error', ({message})=> console.error(message));
+      spotifyPlayer.addListener('playback_error', ({message})=> console.error(message));
+      spotifyPlayer.addListener('player_state_changed', state => {
+        if(!state) return;
+        const tr = state.track_window && state.track_window.current_track;
+        if(tr) setTrackText(`${tr.name} — ${tr.artists.map(a=>a.name).join(', ')}`);
+        const paused = state.paused;
+        document.getElementById('spotifyPlay').style.display = paused ? '' : 'none';
+        document.getElementById('spotifyPause').style.display = paused ? 'none' : '';
+      });
+      spotifyPlayer.connect().then(success => {
+        if(success){ console.log('Spotify Player connected'); spotifyPlayer.getCurrentState().then(s=>{ if(s){ const tr = s.track_window.current_track; if(tr) setTrackText(`${tr.name} — ${tr.artists.map(a=>a.name).join(', ')}`); } }); }
+      });
+    }
+
+    // If user clicks connect, ask for token paste (simple flow)
+    connectBtn.addEventListener('click', ()=>{
+      const tok = prompt('Spotify のアクセストークンを貼り付けてください（要: Spotify Web API トークン）');
+      if(!tok) return;
+      localStorage.setItem('spotify_token', tok.trim()); accessToken = tok.trim(); initPlayer(accessToken);
+      connectBtn.style.display='none';
+    });
+
+    // playback controls use Spotify Web API Play endpoints with token
+    playBtn.addEventListener('click', async ()=>{
+      const tok = localStorage.getItem('spotify_token'); if(!tok) return alert('先に Connect Spotify してください');
+      // try resume via Web API
+      try{ await fetch('https://api.spotify.com/v1/me/player/play', { method:'PUT', headers:{ Authorization: 'Bearer '+tok } }); }catch(e){ console.warn('play failed', e); }
+    });
+    pauseBtn.addEventListener('click', async ()=>{
+      const tok = localStorage.getItem('spotify_token'); if(!tok) return alert('先に Connect Spotify してください');
+      try{ await fetch('https://api.spotify.com/v1/me/player/pause', { method:'PUT', headers:{ Authorization: 'Bearer '+tok } }); }catch(e){ console.warn('pause failed', e); }
+    });
+
+    // auto-init if token exists
+    if(accessToken){ connectBtn.style.display='none'; initPlayer(accessToken); }
   }
 
   // Google sign-in and short-code sharing removed. We keep Firestore-backed account storage (学籍番号ベース).

@@ -1,38 +1,41 @@
 :root{
-  /* メインカラー */
-  --bg:#f5f7fb;
-  --card:#ffffff;
-  --muted:#6b7280;
-  --accent:#0ea5e9; /* 明るい水色 */
+  /* Dark mode base - osu!lazer風の落ち着いたダークトーン */
+  --bg:#071025; /* ページ背景（暗め） */
+  --card:#0b1220; /* カード面 */
+  --muted:#9aa6b2;
+  --accent:#7c5cff; /* アクセント（紫寄り） */
   
   /* UI要素 */
-  --control-bg:#f8fafc;
-  --control-border:#e2e8f0;
-  --input-border:#eef3fb;
-  --input-focus:#818cf8;
-  --btn-shadow:0 2px 4px rgba(79,70,229,0.12);
-  --btn-hover-shadow:0 4px 8px rgba(79,70,229,0.2);
+  --control-bg: rgba(255,255,255,0.02);
+  --control-border: rgba(255,255,255,0.04);
+  --input-border: rgba(255,255,255,0.04);
+  --input-focus: rgba(124,92,255,0.18);
+  --btn-shadow: 0 6px 18px rgba(12,18,36,0.6);
+  --btn-hover-shadow: 0 12px 28px rgba(12,18,36,0.7);
   
   /* 基本設定 */
   --radius:12px;
   --radius-sm:8px;
-  --shadow:0 8px 30px rgba(15,23,42,0.06);
-  --shadow-sm:0 2px 8px rgba(0,0,0,0.04);
+  --shadow:0 18px 60px rgba(2,6,23,0.6);
+  --shadow-sm:0 6px 18px rgba(2,6,23,0.5);
   
   font-family: "Inter", "Noto Sans JP", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", Roboto, Arial;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{
-  margin:0;
-  background:var(--bg);
-  color:#0f172a;
-  -webkit-font-smoothing:antialiased;
-}
 .container{
   max-width:980px;
   margin:36px auto;
   padding:20px;
+}
+
+body{
+  margin:0;
+  background: radial-gradient(1200px 600px at 10% 10%, rgba(124,92,255,0.06), transparent),
+              radial-gradient(900px 400px at 90% 90%, rgba(96,165,250,0.03), transparent),
+              var(--bg);
+  color:#e6f1ff;
+  -webkit-font-smoothing:antialiased;
 }
 .card{
   background:var(--card);
@@ -42,7 +45,7 @@ body{
   margin-bottom:18px;
 }
 .site-header{display:flex;justify-content:space-between;align-items:center}
-.site-header h1{margin:0;font-size:1.3rem}
+.site-header h1{margin:0;font-size:1.3rem;color:var(--muted)}
 .subtitle{margin:6px 0 0;color:var(--muted);font-size:0.95rem}
 .header-right .small-label{color:var(--muted);font-size:12px}
 .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
@@ -131,33 +134,23 @@ body{
   box-shadow: var(--shadow);
 }
 .btn{
+  /* 単色ボタン（単一トーン、シンプル） */
   background: var(--accent);
+  color: #ffffff;
   border: none;
-  color: white;
   padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   cursor: pointer;
-  box-shadow: var(--btn-shadow);
-  transition: all 0.2s ease;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
   font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 6px 18px rgba(12,18,36,0.45);
 }
 
 /* Ensure the tests grid takes a full row in the controls area so tiles are visible */
 #testsGrid{flex-basis:100%;width:100%}
 
-.btn:hover {
-  opacity: 0.95;
-  transform: translateY(-1px);
-  box-shadow: var(--btn-hover-shadow);
-}
-
-.btn:active {
-  transform: translateY(1px);
-  box-shadow: var(--btn-shadow);
-}
+.btn:hover{ transform: translateY(-2px); box-shadow: 0 12px 28px rgba(12,18,36,0.55); }
+.btn:active{ transform: translateY(0); box-shadow: 0 6px 18px rgba(12,18,36,0.45); }
 
 .btn.danger {
   background: #dc2626;
@@ -260,13 +253,27 @@ footer.tiny ul{
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: start;
 }
+/* Tests carousel: horizontal swipeable tiles */
+#testsGrid{
+  display: flex;
+  gap: 18px;
+  padding: 18px 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+
+.tests-grid{
+  display:grid;
+}
+
 .test-tile{
   /* osu!lazer風のネオンタイル */
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  border: 1px solid rgba(255,255,255,0.06);
-  padding: 16px;
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(14,165,233,0.06), inset 0 1px 0 rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.03);
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -276,8 +283,10 @@ footer.tiny ul{
   position: relative;
   overflow: hidden;
   color: #e6f7ff;
+  flex: 0 0 260px; /* fixed width for carousel */
+  scroll-snap-align: center;
 }
-.test-tile:hover{transform:translateY(-6px);box-shadow:0 18px 50px rgba(14,165,233,0.14)}
+.test-tile:hover{ transform: translateY(-6px); }
 .test-tile::before{
   content: '';
   position: absolute;
@@ -291,6 +300,12 @@ footer.tiny ul{
 }
 .test-tile .tile-name{font-weight:800;margin-bottom:6px;color:#eaf6ff}
 .test-tile .tile-meta{color:rgba(234,246,255,0.7);font-size:0.9rem}
+
+/* Selected tile state (centered) */
+.test-tile.tile-selected{ transform: scale(1.08); z-index: 6; box-shadow: 0 30px 80px rgba(124,92,255,0.18); border-color: rgba(124,92,255,0.28); }
+
+/* Make controls less intrusive */
+.controls input, .controls select{ background: rgba(255,255,255,0.02); border:1px solid var(--input-border); color:var(--muted); }
 
 /* Study / Test card — override inline styles to apply futuristic look */
 #studyCard, #testCard{

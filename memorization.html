@@ -235,7 +235,17 @@
     clearCardBtn.addEventListener('click', ()=>{ cardFront.value=''; cardBack.value=''; editingCardIndex = null; saveCardBtn.textContent = 'カードを保存'; if(toggleEditBtn) toggleEditBtn.style.display = ''; if(openMemHeaderBtn) openMemHeaderBtn.style.display = ''; updateOpenResultsBtn(); });
 
   // study mode (full-screen style)
-  function showStudy(i){ if(!deckCards.length) return; currentIndex = (i+deckCards.length)%deckCards.length; const c = deckCards[currentIndex]; studyFront.textContent = c.front; studyBack.textContent = c.back; studyBack.style.display='none'; progressEl.textContent = `${currentIndex+1}/${deckCards.length}`; }
+  function showStudy(i){
+    if(!deckCards.length) return;
+    currentIndex = (i+deckCards.length)%deckCards.length;
+    const c = deckCards[currentIndex];
+    studyFront.textContent = c.front;
+    studyBack.textContent = c.back;
+    studyBack.style.display='none';
+    progressEl.textContent = `${currentIndex+1}/${deckCards.length}`;
+    // animate card entrance
+    try{ const card = document.getElementById('studyCard'); card.classList.add('card-appear'); setTimeout(()=>card.classList.remove('card-appear'), 520); }catch(e){}
+  }
   revealBtn.addEventListener('click', ()=>{ studyBack.style.display='block'; });
     prevBtn.addEventListener('click', ()=>{ showStudy(currentIndex-1); });
     nextBtn.addEventListener('click', ()=>{
@@ -281,8 +291,13 @@
     }
     function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    function showTest(i){ if(!deckCards.length) return; currentIndex = (i+deckCards.length)%deckCards.length; const c = deckCards[currentIndex]; const built = buildTestForCard(c);
-      testFront.innerHTML = ''; testFront.appendChild(document.createElement('div')).innerHTML = built.htmlFront;
+    function showTest(i){
+      if(!deckCards.length) return;
+      currentIndex = (i+deckCards.length)%deckCards.length;
+      const c = deckCards[currentIndex];
+      const built = buildTestForCard(c);
+      testFront.innerHTML = '';
+      const wrapper = document.createElement('div'); wrapper.innerHTML = built.htmlFront; testFront.appendChild(wrapper);
       testInputs.innerHTML = '';
       // create inputs equal to blanks/answers
       const inputsWrapper = document.createElement('div'); inputsWrapper.style.display='flex'; inputsWrapper.style.gap='8px'; inputsWrapper.style.alignItems='center'; inputsWrapper.style.marginTop='12px'; inputsWrapper.style.width='100%';
@@ -300,6 +315,8 @@
       testResult.textContent=''; testSummary.style.display='none';
       // focus first input
       if(firstInput) setTimeout(()=>{ firstInput.focus(); },50);
+      // animate test card entrance
+      try{ const card = document.getElementById('testCard'); card.classList.add('card-appear'); setTimeout(()=>card.classList.remove('card-appear'), 520); }catch(e){}
   // attach handler
   action.onclick = ()=>{ evaluateCurrentAnswer(); };
   // allow Enter key on inputs to submit
@@ -313,7 +330,18 @@
     }
 
     // test mode flow with session tracking, big emoji feedback and final summary
-    function showFeedback(isCorrect){ feedbackEmoji.textContent = isCorrect ? '⭕️' : '❌'; feedbackOverlay.style.display = 'flex'; setTimeout(()=>{ feedbackOverlay.style.display = 'none'; }, 800); }
+    function showFeedback(isCorrect){
+      try{
+        feedbackEmoji.textContent = isCorrect ? '⭕️' : '❌';
+        feedbackOverlay.classList.add('feedback-show');
+        setTimeout(()=>{ feedbackOverlay.classList.remove('feedback-show'); }, 900);
+      }catch(e){
+        // fallback to old behavior
+        feedbackEmoji.textContent = isCorrect ? '⭕️' : '❌';
+        feedbackOverlay.style.display = 'flex';
+        setTimeout(()=>{ feedbackOverlay.style.display = 'none'; }, 800);
+      }
+    }
 
   function startTestSession(){ testSession = { total: deckCards.length, correct: 0, seen: 0, entries: [] }; }
 

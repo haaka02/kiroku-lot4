@@ -382,7 +382,11 @@
       const name = document.createElement('div'); name.className = 'tile-name'; name.textContent = t.name;
       const meta = document.createElement('div'); meta.className = 'tile-meta'; meta.textContent = `${(t.subjects||[]).length} 科目`;
       tile.appendChild(name); tile.appendChild(meta);
-      tile.addEventListener('click', ()=>{ window.location.href = 'test.html?testId=' + encodeURIComponent(t.id); });
+      // hover/leave animations
+      tile.addEventListener('mouseenter', ()=> tile.classList.add('tile-hover'));
+      tile.addEventListener('mouseleave', ()=> tile.classList.remove('tile-hover'));
+      // press animation then navigate shortly after to allow effect
+      tile.addEventListener('click', (e)=>{ e.preventDefault(); tile.classList.add('tile-press'); const target = 'test.html?testId=' + encodeURIComponent(t.id); setTimeout(()=>{ window.location.href = target; }, 160); });
       grid.appendChild(tile);
     });
   }

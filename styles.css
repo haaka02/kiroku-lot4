@@ -134,22 +134,22 @@ body{
   box-shadow: var(--shadow);
 }
 .btn{
-  /* 単色ボタン（単一トーン、シンプル） */
-  background: var(--accent);
-  color: #ffffff;
-  border: none;
+  /* ガラス感のある単色ボタン（背景は半透明、文字にアクセント色） */
+  background: rgba(255,255,255,0.02);
+  color: var(--accent);
+  border: 1px solid rgba(255,255,255,0.06);
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   font-size: 0.9rem;
-  box-shadow: 0 6px 18px rgba(12,18,36,0.45);
+  backdrop-filter: blur(6px);
 }
 
 /* Ensure the tests grid takes a full row in the controls area so tiles are visible */
 #testsGrid{flex-basis:100%;width:100%}
 
-.btn:hover{ transform: translateY(-2px); box-shadow: 0 12px 28px rgba(12,18,36,0.55); }
+.btn:hover{ transform: translateY(-2px); background: rgba(255,255,255,0.04); box-shadow: 0 12px 28px rgba(12,18,36,0.55); }
 .btn:active{ transform: translateY(0); box-shadow: 0 6px 18px rgba(12,18,36,0.45); }
 
 .btn.danger {
@@ -253,22 +253,25 @@ footer.tiny ul{
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: start;
 }
-/* Tests carousel: horizontal swipeable tiles */
-#testsGrid{
-  display: flex;
-  gap: 18px;
-  padding: 18px 6px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x mandatory;
-}
-
 .tests-grid{
   display:grid;
 }
 
+/* Vertical right-aligned tile list */
+#testsGrid{
+  display:flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  align-items: flex-end; /* right-aligned */
+  max-height: 64vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: y proximity;
+}
+
 .test-tile{
-  /* osu!lazer風のネオンタイル */
+  /* osu!lazer風ネオンタイル（縦リスト向け） */
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
   border: 1px solid rgba(255,255,255,0.03);
   padding: 14px 18px;
@@ -279,11 +282,11 @@ footer.tiny ul{
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  min-height: 92px;
+  min-height: 84px;
   position: relative;
   overflow: hidden;
   color: #e6f7ff;
-  flex: 0 0 260px; /* fixed width for carousel */
+  width: 320px;
   scroll-snap-align: center;
 }
 .test-tile:hover{ transform: translateY(-6px); }
@@ -331,8 +334,7 @@ footer.tiny ul{
 #feedbackOverlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9999; pointer-events:none }
 #feedbackOverlay #feedbackEmoji{ font-size:8rem; filter: drop-shadow(0 20px 40px rgba(2,6,23,0.6)); transform:translateY(-8px); }
 
-/* Buttons: neon style */
-.btn{ background: linear-gradient(90deg,#60a5fa,#6ee7b7); color:#04263a; font-weight:700; box-shadow: 0 8px 30px rgba(62,130,255,0.12); border: 1px solid rgba(255,255,255,0.06); }
+/* Removed duplicate gradient .btn rules to preserve single-tone glass buttons */
 .btn.danger{ background: linear-gradient(90deg,#fb7185,#ef4444); color:#fff }
 
 /* subtle animated highlight sweep */
